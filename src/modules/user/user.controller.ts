@@ -90,10 +90,17 @@ export class UserController {
     // async surveyStatsward(@Param('stateName') stateName: string, @Param('districtName') districtName: string, @Param('cityName') cityName: string) {
     //     return await this.mapService.getDataFromDbWard('WARD', stateName, districtName, cityName);
     // }
-    @Get('surveyandstatsward/:stateName') ///:districtName/:cityName
+
+
+    @Get('surveyandstatsvillage/:stateName/:districtName') ///:districtName/:cityName
     async surveyStatsVillage(@Param('stateName') stateName: string, @Param('districtName') districtName: string) {
         return await this.mapService.getDataFromDbVillage('VILLAGE', stateName, districtName);
     }
+
+
+
+
+
     @Get('location')
     async processData(): Promise<any> {
         console.log('Starting the process...');

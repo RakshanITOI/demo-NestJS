@@ -10,7 +10,7 @@ import { Chat } from './modules/chat/entity/chat.entity';
 import { MessageEntity } from './modules/message/message.entity';
 import { LoginMiddleware } from './middleware/login/login.middleware';
 import { Country, State, District, SubDistrict, Village, Ward, City } from './modules/user/map/entity/map.entity';
-import { MongooseModule } from '@nestjs/mongoose';
+// import { MongooseModule } from '@nestjs/mongoose';
 
 @Module({
   imports: [AuthModule, ModulesModule,
@@ -19,7 +19,8 @@ import { MongooseModule } from '@nestjs/mongoose';
       host: 'localhost',
       port: 3306,
       username: 'root',
-      password: 'admin@123#2023',
+      // password: 'admin@123#2023',
+      password:'jenisha',
       database: 'prod_mapdata', //change to demo for other database
       entities: [Country, State, District, SubDistrict, Village, City, Ward],
       connectTimeout: 18000000 //30 min

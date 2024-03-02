@@ -970,12 +970,21 @@ export class MapService {
                 //     .where('v.state_name = :value', { value: 'Maharashtra' })
                 //     .andWhere('dist.district_name = :distValue', { distValue: 'Ahmednagar' })
                 //     .stream();
-                streamData = await villageQuery.select(select).stream()
+                streamData = await villageQuery.select(select)
+                    .innerJoin('subdistrict', 'subd', 'subd.id = v.subdistrict_id')
+                    .innerJoin('district', 'dist', 'dist.id = subd.district_id')
+                    // .where('v.state_name = :value', { value: 'Tamil Nadu' }) 
+                    // .andWhere('dist.district_name IN (:...districts)', { districts: ['Dharmapuri',
+                    //  'Dindigul','Erode'] })
+                    .where('v.state_name = :stateName', { stateName })
+                    .andWhere('dist.district_name = :districtName', { districtName })
+                    .stream();
+                // streamData = await villageQuery.select(select).stream()
                 // .innerJoin('subdistrict', 'subd', 'subd.id = v.subdistrict_id')
                 // .innerJoin('district', 'dist', 'dist.id = subd.district_id')
-                // .where('v.state_name = :value', { value: 'Tamil Nadu' }) 
-                // .andWhere('dist.district_name IN (:...districts)', { districts: ['Dharmapuri',
-                //  'Dindigul','Erode'] })
+                // // .where('v.state_name = :value', { value: 'Tamil Nadu' }) 
+                // // .andWhere('dist.district_name IN (:...districts)', { districts: ['Dharmapuri',
+                // //  'Dindigul','Erode'] })
                 // .where('v.state_name = :stateName', { stateName })
                 // .andWhere('dist.district_name = :districtName', { districtName })
                 // .stream();
@@ -1429,7 +1438,7 @@ export class MapService {
     async surveyAndStatsWard(admin0, admin1, admin2, admin3, admin4, polygon, features, object_id) {
         // try {
         const churchList = [];
-        console.log(`admin0: ${admin0}, admin1: ${admin1}, admin2: ${admin2}, admin3: ${admin3}, admin4: ${admin4}`);
+        // console.log(`admin0: ${admin0}, admin1: ${admin1}, admin2: ${admin2}, admin3: ${admin3}, admin4: ${admin4}`);
 
         const client = await MongoClient.connect('mongodb://127.0.0.1:27017/iif-local');
         const db = client.db('iif-local');
@@ -1451,11 +1460,11 @@ export class MapService {
         // Save survey and stats concurrently
         await Promise.all([
             this.saveSurvey(features, churchList),
-            this.saveStatsWard(object_id, features, churchList)
+            // this.saveStatsWard(object_id, features, churchList)
         ]);
 
         this.total_church_count += churchList.length;
-        console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
+        // console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
 
         client.close();
         return { success: true, message: 'Survey and stats saved successfully.' };
@@ -1769,20 +1778,31 @@ export class MapService {
         }
         payload.newChurches = structuredClone(churchList).map((cl) => {
             let res = {
-                "name": cl?.name,
+                admin0: admin0,
+                admin1: admin1,
+                admin2: admin2,
+                admin3: admin3,
+                admin4: admin4,
+                "name": cl?.properties?.name,
+                // "name": cl?.name,
                 "organization": cl?.organization?.organizationName,
                 "memberCount": cl?.memberCount,
                 "workerCount": 1,
                 "phone_number": cl?.phone_number,
-                "localLanguage": cl?.language,
+                "localLanguage": cl?.properties?.Church_Name_Marathi,
                 "peopleGroups": cl?.people_group,
                 "email": cl?.email,
-                "location": {
-                    "lat": cl?.geometry?.location?.lat,
-                    "lng": cl?.geometry?.location?.lng,
-                },
+                // "location": {
+                //     "lat": cl?.geometry?.location?.lat,
+                //     "lng": cl?.geometry?.location?.lng,
+                // },
+                "lat": cl?.geometry.coordinates[1],
+                "lng": cl?.geometry.coordinates[0],
                 "workerName": cl?.worker_name,
-                "address": cl?.address,
+                "denomination":cl?.properties?.Church_Denomination,
+                "address": cl?.properties?.Church_Address,
+                "plusCode":cl?.properties?.Plus_Code,
+                // "address": cl?.address,
                 userId: '1',
                 createdUserId: '1',
                 "remarks": ""
