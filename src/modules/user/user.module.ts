@@ -1,12 +1,11 @@
-import { Module, forwardRef } from '@nestjs/common';
-import { UserController } from './user.controller';
-import { UserService } from './user.service';
-import { User } from './entity/user.entity';
+import { HttpModule } from '@nestjs/axios';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Admin0, Admin1, Admin2, Admin3, Admin4, City, Country, District, State, SubDistrict, Village, Ward } from './map/entity/map.entity';
 import { KmlService } from './map/kml.service';
 import { MapService } from './map/map.service';
-import { City, Country, District, State, SubDistrict, Village, Ward } from './map/entity/map.entity';
-import { HttpModule } from '@nestjs/axios';
+import { UserController } from './user.controller';
+import { UserService } from './user.service';
 
 const http = require('http'),
   https = require('https'),
@@ -19,7 +18,7 @@ const http = require('http'),
       httpAgent: httpAgent,
       httpsAgent:httpsAgent
     }),
-     TypeOrmModule.forFeature([Country, State, District, SubDistrict, Village, City, Ward])
+     TypeOrmModule.forFeature([Country, State, District, SubDistrict, Village, City, Ward,Admin0,Admin1,Admin2,Admin3,Admin4])
   ], //User
   controllers: [UserController],
   providers: [UserService, KmlService, MapService],

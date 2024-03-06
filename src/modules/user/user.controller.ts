@@ -94,7 +94,7 @@ export class UserController {
 
     @Get('surveyandstatsvillage/:stateName/:districtName') ///:districtName/:cityName
     async surveyStatsVillage(@Param('stateName') stateName: string, @Param('districtName') districtName: string) {
-        return await this.mapService.getDataFromDbVillage('VILLAGE', stateName, districtName);
+        return await this.mapService.getDataFromDbVillage('ADMIN4_VILLAGE', stateName, districtName);
     }
 
 
