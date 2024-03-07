@@ -3,7 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import * as fs from 'fs';
 import { appendFile, createWriteStream, existsSync, mkdirSync, writeFileSync } from "fs";
-import { Observable, from, lastValueFrom } from "rxjs";
+import { Observable, delay, from, lastValueFrom } from "rxjs";
 import { DataSource, Repository } from "typeorm";
 import { City, Country, District, State, SubDistrict, Village, Ward } from "./entity/map.entity";
 //import path from "path";
@@ -969,25 +969,29 @@ export class MapService {
 
 
     async getDataFromDbVillage(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'ADMIN4_VILLAGE' | 'CITY' | 'VILLAGE' | 'ADMIN4_WARD' | 'wardId', stateName: string, districtName: string) {
-            const admin0Query = this.admin0Repository.createQueryBuilder('admin0'),
-            admin1Query = this.admin1Repository.createQueryBuilder('admin1'),
-            admin2Query = this.admin2Repository.createQueryBuilder('admin2'),
-            admin3Query = this.admin3Repository.createQueryBuilder('admin3'),
-            admin4Query = this.admin4Repository.createQueryBuilder('a4');
-       const select = ['a0.admin_0_name as admin0','a1.admin_1_name as admin1','a2.admin_2_name as admin2','a3.admin_3_name as admin3','a4.admin_4_name as admin4','a4.object_id as object_id', 'a4.geometries as geometries','a4.properties as properties']
+        const admin0Query = this.admin0Repository.createQueryBuilder('admin0'),
+        admin1Query = this.admin1Repository.createQueryBuilder('admin1'),
+        admin2Query = this.admin2Repository.createQueryBuilder('admin2'),
+        admin3Query = this.admin3Repository.createQueryBuilder('admin3'),
+        admin4Query = this.admin4Repository.createQueryBuilder('a4');
+        const select = ['a0.admin_0_name as admin0','a1.admin_1_name as admin1','a2.admin_2_name as admin2','a3.admin_3_name as admin3','a4.admin_4_name as admin4','a4.object_id as object_id', 'a4.geometries as geometries','a4.properties as properties']
+        await this.getAllChurch('Maharashtra');
         const stream = await admin4Query.select(select)
         .innerJoin('admin3','a3','a3.id = a4.admin_3_fk_id ')
         .innerJoin('admin2','a2','a2.id = a3.admin_2_fk_id ')
         .innerJoin('admin1','a1','a1.id = a2.admin_1_fk_id ')
         .innerJoin('admin0','a0','a0.id = a1.admin_0_fk_id ')
         .where('a4.type = :type', { type : 1 })
-        .andWhere('LOWER(a2.admin_2_name) LIKE LOWER(:value)', { value : 'Dhule' })
+        .andWhere('LOWER(a2.admin_2_name) LIKE LOWER(:value)', { value : 'Nanded' })
         .stream()
         console.log('Streaming Started')
         stream.on('data',async (data:any) =>  {
+            delay(500)
             let prop = typeof data?.properties == 'string' ? JSON.parse(data?.properties) : data?.properties;
             const geometry = typeof data?.geometries == 'string' ? JSON.parse(data?.geometries) : data?.geometries;
-             await this.surveyAndStatsWard(data.admin0, data.admin1, data.admin2, data.admin3, data.admin4, geometry.coordinates, prop, data.object_id)
+            setTimeout(async() => {
+                await this.surveyAndStatsWard(data.admin0, data.admin1, data.admin2, data.admin3, data.admin4, geometry.coordinates, prop, data.object_id)
+            }, 2000);
         })
         stream.on('end' , () => {
             console.log('Stream Completed')
@@ -1235,20 +1239,38 @@ export class MapService {
         }
     }
 
-
+allChurchCollection:any=[];
+async getAllChurch(admin1){
+    if(Array.isArray(this.allChurchCollection) && this.allChurchCollection.length){
+        return this.allChurchCollection;
+    }
+        console.log('call to connect maongo db');
+        const client = await MongoClient.connect('mongodb+srv://itoi:Yu7blcAMUUC8jAFU@cluster0-oi4s9.mongodb.net/iif-dev-db?retryWrites=true&w=majority');
+        const db = client.db('iif-dev-db');
+        const churchCollection = await db.collection('geocode_responses')
+            .find({ "properties.admin1": admin1 })
+            .toArray() || [];
+            client.close();
+            console.log('result of all church',churchCollection)
+        this.allChurchCollection = await this.removeDuplicate(churchCollection || []) || [];
+        return this.allChurchCollection
+}
     async surveyAndStatsWard(admin0, admin1, admin2, admin3, admin4, polygon, prop, object_id) {
         try {
             const churchList = [];
             console.log(`admin0: ${admin0}, admin1: ${admin1}, admin2: ${admin2}, admin3: ${admin3}, admin4: ${admin4}`);
-    
-            const client = await MongoClient.connect('mongodb://localhost:27017/');
-            const db = client.db('iif-local');
-            const churchCollection = await db.collection('geocode_responses')
-                .find({ "properties.admin1": admin1 })
-                .toArray() || [];
-            const uniqueChurches = await this.removeDuplicate(churchCollection || []) || [];
-    
-            for (const church of uniqueChurches) {
+            // if(!Array.isArray(this.allChurchCollection) || !this.allChurchCollection.length){
+            // const client = await MongoClient.connect('mongodb+srv://itoi:Yu7blcAMUUC8jAFU@cluster0-oi4s9.mongodb.net/iif-dev-db?retryWrites=true&w=majority');
+            // const db = client.db('iif-dev-db');
+            // const churchCollection = await db.collection('geocode_responses')
+            //     .find({ "properties.admin1": admin1 })
+            //     .toArray() || [];
+            //     client.close();
+            // const uniqueChurches = await this.removeDuplicate(churchCollection || []) || [];
+            // this.allChurchCollection = uniqueChurches;
+            // }
+
+            for (const church of this.allChurchCollection) {
                 const latlng = { lat: church.geometry.coordinates[1], lng: church.geometry.coordinates[0] }
                 const churchLocation = latlng;
                 const isInside = await this.isMarkerInsidePolygon(churchLocation, polygon);
@@ -1258,17 +1280,19 @@ export class MapService {
                 }
             }
             console.log('before Save Survey',`${admin4}`)
-            await this.saveSurvey(prop, churchList);
+            // await this.saveSurvey(prop, churchList);
     
             // Save survey and stats concurrently
             // await Promise.all([
-            //     // this.saveStatsWard(object_id, prop, churchList)
+                // this.saveSurvey(prop, churchList);
+                const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+            await delay(1000);
+              await  this.saveStatsWard(object_id, prop, churchList)
             // ]);
     
             this.total_church_count += churchList.length;
             // console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
     
-            client.close();
             return { success: true, message: 'Survey and stats saved successfully.' };
         } catch (error) {
             console.log('Error in surveyAndStats:', error);
@@ -1570,6 +1594,7 @@ export class MapService {
             admin3: admin3,
             admin4: admin4,
             isMasterSurvey: true,
+            isUserSurvey:false,
             noWork: Array.isArray(churchList) && churchList?.length ? false : true,
             approvedDate: new Date(),
             geojson: strJson,
@@ -1864,11 +1889,11 @@ export class MapService {
         }
     }
 
-    async saveStatsWard(object_id, feature, churchList) {
+    async saveStatsWard(object_id, prop, churchList) {
         try {
-            const payload = await this.statsPayload(feature, churchList);
-    
-            const url = `https://api-iia.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/0`;
+            const payload = await this.statsPayload(prop, churchList);
+            const url = `http://192.168.29.188/IIF_Local/iia-php-api/api/v1/adminStats/saveByName/${object_id}/1`;
+            // const url = `https://api-iif.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/1`;
     
             axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
     
@@ -1922,13 +1947,13 @@ export class MapService {
 
 
 
-    statsPayload(feature, churchCount) {
+    statsPayload(prop, churchCount) {
         let payload: any = {};
         payload.no_member = 0
         payload.no_church = Array.isArray(churchCount) && churchCount?.length ? churchCount.length : 0
         // payload.no_church = churchCount
-        payload.no_people = feature?.properties?.tot_p_2011
-        payload.no_house_hold = feature?.properties?.no_hh_2011
+        payload.no_people = prop.tot_p_2011
+        payload.no_house_hold = prop.no_hh_2011
         return payload
     }
 
