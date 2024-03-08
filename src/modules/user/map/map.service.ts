@@ -982,7 +982,7 @@ export class MapService {
         .innerJoin('admin1','a1','a1.id = a2.admin_1_fk_id ')
         .innerJoin('admin0','a0','a0.id = a1.admin_0_fk_id ')
         .where('a4.type = :type', { type : 1 })
-        .andWhere('LOWER(a2.admin_2_name) LIKE LOWER(:value)', { value : 'Nanded' })
+        .andWhere('LOWER(a2.admin_2_name) LIKE LOWER(:value)', { value : 'Ahmednagar' })
         .stream()
         console.log('Streaming Started')
         stream.on('data',async (data:any) =>  {
@@ -1284,10 +1284,10 @@ async getAllChurch(admin1){
     
             // Save survey and stats concurrently
             // await Promise.all([
-                // this.saveSurvey(prop, churchList);
-                const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-            await delay(1000);
-              await  this.saveStatsWard(object_id, prop, churchList)
+                this.saveSurvey(admin4, prop, churchList);
+            //     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+            // await delay(1000);
+            //   await  this.saveStatsWard(object_id, prop, churchList)
             // ]);
     
             this.total_church_count += churchList.length;
@@ -1473,10 +1473,10 @@ async getAllChurch(admin1){
     }
 
     async
-    saveSurvey(data: any, churchList: any = []): Promise<any> {
+    saveSurvey(admin4, data: any, churchList: any = []): Promise<any> {
         return new Promise(async (resolve, reject) => {
             try {
-                const apiPayload = await this.payload(data, churchList);
+                const apiPayload = await this.payload(admin4,data, churchList);
                 console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
                 const url = `http://192.168.29.106:8080/api/encuesta/create`;
                 const headersRequest = {
@@ -1560,19 +1560,23 @@ async getAllChurch(admin1){
     }
 
 
-    async payload(prop, churchList: any = []) {
+    async payload(admin4, prop, churchList: any = []) {
         const geoJson = await JSON.stringify(structuredClone(prop));
         const strJson = jsonMinify(geoJson)
-
+       
+       
+        
+        const changeAdmin4 = admin4.replace(/[^\u000A\u0020-\u007E]/g, ' ');
+        const finalAdmin4 = changeAdmin4.replace(/[\s~`!@#$%^&*()_+\-={[}\]|\\:;"'<,>.?/]+/g, '').replace(/\s+/g, ' ');
         const payload: any = {},
             admin0 = 'India',
             //admin0 = features?.properties.country,
             admin1 = 'Maharashtra', //features?.properties.state,
             admin2 =prop?.admin2,
             // admin2 = 'Nagpur',
-            admin3 = prop?.admin3,
+            admin3 = prop?.admin3
             // admin3 = features.properties.cityname + ' City',
-            admin4 =prop?.name;
+            
         // admin4 = (features?.properties.sourcewardname.replace(/[^a-zA-Z_ ]/g, '') + ' Wardno ' + features?.properties.sourcewardcode).replace(/\s+/g, ' ');
         // admin4 = features?.properties.name ? features.properties.name.replace('_', ' ').replace(/(?:^|\s)\S/g, (match) => match.toUpperCase()) : null;
         // admin4 = 'Wardno ' + features?.properties.sourcewardcode;
@@ -1584,7 +1588,7 @@ async getAllChurch(admin1){
             admin1: admin1,
             admin2: admin2,
             admin3: admin3,
-            admin4: admin4,
+            admin4: finalAdmin4,
             isMasterSurvey: true,
             isUserSurvey:false,
             noWork: Array.isArray(churchList) && churchList?.length ? false : true,
@@ -1602,7 +1606,7 @@ async getAllChurch(admin1){
                 admin1: admin1,
                 admin2: admin2,
                 admin3: admin3,
-                admin4: admin4,
+                admin4: finalAdmin4,
                 "name": cl?.properties?.name,
                 // "name": cl?.name,
                 "organization": cl?.organization?.organizationName,
