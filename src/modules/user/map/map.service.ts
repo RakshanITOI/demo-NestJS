@@ -981,7 +981,7 @@ export class MapService {
         .innerJoin('admin2','a2','a2.id = a3.admin_2_fk_id ')
         .innerJoin('admin1','a1','a1.id = a2.admin_1_fk_id ')
         .innerJoin('admin0','a0','a0.id = a1.admin_0_fk_id ')
-        .where('a4.type = :type', { type : 1 })
+        .where('a4.type = :type', { type : 2 })
         .andWhere('LOWER(a2.admin_2_name) LIKE LOWER(:value)', { value : 'Ahmednagar' })
         .stream()
         console.log('Streaming Started')
@@ -1567,7 +1567,10 @@ async getAllChurch(admin1){
        
         
         const changeAdmin4 = admin4.replace(/[^\u000A\u0020-\u007E]/g, ' ');
-        const finalAdmin4 = changeAdmin4.replace(/[\s~`!@#$%^&*()_+\-={[}\]|\\:;"'<,>.?/]+/g, '').replace(/\s+/g, ' ');
+        // const finalAdmin4 = changeAdmin4.replace(/[\s~`!@#$%^&*()_+\-={[}\]|\\:;"'<,>.?/]+/g, '').replace(/\s+/g, ' ');
+        
+        const finalAdmin4 = changeAdmin4.replace(/[^\w\s]|[_-]/g, ' ').replace(/\s{2,}/g, ' ');
+
         const payload: any = {},
             admin0 = 'India',
             //admin0 = features?.properties.country,

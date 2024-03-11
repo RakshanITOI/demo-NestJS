@@ -6,6 +6,8 @@ import { KmlService } from './map/kml.service';
 import { MapService } from './map/map.service';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
+import { HeuristicSurveyController } from '../heuristic_survey/heuristic_survey.controller';
+import { HeuristicSurveyService } from '../heuristic_survey/heuristic_survey.service';
 
 const http = require('http'),
   https = require('https'),
@@ -20,8 +22,8 @@ const http = require('http'),
     }),
      TypeOrmModule.forFeature([Country, State, District, SubDistrict, Village, City, Ward,Admin0,Admin1,Admin2,Admin3,Admin4])
   ], //User
-  controllers: [UserController],
-  providers: [UserService, KmlService, MapService],
-  exports: [UserService]
+  controllers: [UserController,HeuristicSurveyController],
+  providers: [UserService, KmlService, MapService,HeuristicSurveyService],
+  exports: [UserService,HeuristicSurveyService]
 })
 export class UserModule { }
