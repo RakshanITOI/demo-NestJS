@@ -7,7 +7,10 @@ import { Admin0, Admin1, Admin2, Admin3, Admin4 } from "./entity/map-data.entity
 import { MongoClient } from "mongodb";
 import { delay, writeCSV } from "src/helper/utility";
 import { writeFileSync } from "fs";
-
+import axiosRetry from "axios-retry";
+import axios from "axios";
+import { features } from "process";
+// import { delay } from "../helper/utility";
 
 const jsonMinify = require('jsonminify');
 
@@ -94,19 +97,22 @@ export class HeuristicSurveyService {
         const strJson = jsonMinify(geoJson)
 
         const payload: any = {},
+        
             admin0 = features?.properties?.admin0,
-            admin1 = features?.properties?.admin1, //features?.properties.state,
+            admin1 = features?.properties?.admin1, 
             admin2 = features?.properties.admin2,
             admin3 = features?.properties.admin3,
             admin4 = features.properties.admin4;
-
+            const changeAdmin4 = admin4.replace(/[^\u000A\u0020-\u007E]/g, ' ');
+            const finalAdmin4 = changeAdmin4.replace(/[^\w\s]|[_-]/g, ' ').replace(/\s{2,}/g, ' ');
         payload.survey = {
             admin0: admin0,
             admin1: admin1,
             admin2: admin2,
             admin3: admin3,
-            admin4: admin4,
+            admin4: finalAdmin4,
             isMasterSurvey: true,
+            isUserSurvey: false,
             noWork: Array.isArray(churchList) && churchList?.length ? false : true,
             approvedDate: new Date(),
             geojson: strJson,
@@ -116,22 +122,29 @@ export class HeuristicSurveyService {
             churchCount: Array.isArray(churchList) && churchList?.length ? churchList.length : 0
         }
         payload.newChurches = structuredClone(churchList).map((cl) => {
-            const prop = cl?.properties;
             let res = {
-                "name": prop?.name,
-                "organization": prop?.organization || '',
-                "memberCount": prop?.memberCount,
+
+                admin0: admin0,
+                admin1: admin1,
+                admin2: admin2,
+                admin3: admin3,
+                admin4: finalAdmin4,
+                "name": cl?.properties?.name,
+                "organization": cl?.organization?.organizationName,
+                "memberCount": cl?.memberCount,
                 "workerCount": 1,
-                "phone_number": prop?.phone_number,
-                "localLanguage": prop?.language,
-                "peopleGroups": prop?.people_group,
-                "email": prop?.email,
+                "phone_number": cl?.phone_number,
+                "localLanguage": cl?.properties?.Church_Name_Marathi,
+                "peopleGroups": cl?.people_group,
+                "email": cl?.email,
                 "location": {
-                    "lat": prop?.Latitude,
-                    "lng": prop?.Longitude,
+                    "lat": cl?.geometry.coordinates[1],
+                    "lng": cl?.geometry.coordinates[0],
                 },
-                "workerName": prop?.worker_name,
-                "address": prop?.Church_Address,
+                "workerName": cl?.worker_name,
+                "denomination":cl?.properties?.Church_Denomination,
+                "address": cl?.properties?.Church_Address,
+                "plusCode":cl?.properties?.Plus_Code,
                 userId: '1',
                 createdUserId: '1',
                 "remarks": ""
@@ -141,48 +154,77 @@ export class HeuristicSurveyService {
         return payload
     }
 
-    async saveStatsWard(object_id, feature, churchList) {
+
+
+
+    async saveStatsWard(object_id, properties, churchList) {
         try {
-            const payload = await this.statsPayload(feature, churchList);
-            const url = `https://api-iif.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/0`;
+            const payload = await this.statsPayload(properties, churchList);
+            const url = `http://192.168.29.188/IIF_Local/iia-php-api/api/v1/adminStats/saveByName/${object_id}/1`;
+            // const url = `https://api-iif.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/1`;
 
-            // Retry logic (customizable)
-            const maxRetries = 3;
-            let attempt = 0;
-            let res;
-
-            do {
-                try {
-                    attempt++;
-                    res = await this.http.post(url, payload, { timeout: 180000 }).toPromise();
-                    console.log('Save Stats =>', res.data);
-                } catch (error) {
-                    console.log(`Error in save stats (attempt ${attempt} of ${maxRetries}):`, error.message || error);
+            axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
 
 
-                    if (attempt >= maxRetries) {
-                        throw error;
-                    }
-                }
-            } while (!res && attempt < maxRetries);
+            const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+            await delay(1000);
+
+            const res = await axios.post(url, payload, { timeout: 18000000 });
+
+            if (res && res.data) {
+                console.log('Save Stats =>', res.data);
+            }
 
             return res;
         } catch (error) {
-            console.log('Error in save stats =>', error.message || error);
+            // console.log('Error in save stats =>', error.message || error);
+            console.log('Error in save stats =>', error);
             throw error;
         }
     }
 
-    statsPayload(feature, churchList) {
+
+    // async saveStatsWard(object_id, feature, churchList) {
+    //     try {
+    //         const payload = await this.statsPayload(feature, churchList);
+    //         const url = `https://api-iif.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/0`;
+
+    //         // Retry logic (customizable)
+    //         const maxRetries = 3;
+    //         let attempt = 0;
+    //         let res;
+
+    //         do {
+    //             try {
+    //                 attempt++;
+    //                 res = await this.http.post(url, payload, { timeout: 180000 }).toPromise();
+    //                 console.log('Save Stats =>', res.data);
+    //             } catch (error) {
+    //                 console.log(`Error in save stats (attempt ${attempt} of ${maxRetries}):`, error.message || error);
+
+
+    //                 if (attempt >= maxRetries) {
+    //                     throw error;
+    //                 }
+    //             }
+    //         } while (!res && attempt < maxRetries);
+
+    //         return res;
+    //     } catch (error) {
+    //         console.log('Error in save stats =>', error.message || error);
+    //         throw error;
+    //     }
+    // }
+
+    statsPayload(properties, churchCount) {
         let payload: any = {};
         payload.no_member = 0
-        payload.no_church = Array.isArray(churchList) && churchList?.length ? churchList.length : 0
+        payload.no_church = Array.isArray(churchCount) && churchCount?.length ? churchCount.length : 0
         // payload.no_church = churchCount
-        payload.no_people = feature?.properties?.tot_p_2011
-        payload.no_house_hold = feature?.properties?.no_hh_2011
+        payload.no_people = properties.tot_p_2011
+        payload.no_house_hold = properties.no_hh_2011
         return payload
     }
-
 
 
     allChurchColletion: any[] = [];
@@ -212,7 +254,7 @@ export class HeuristicSurveyService {
             return 'No Churches Data in Mongo'
         }
         for (let i = 0; i <= admin4count / row; i++) {
-            await delay(1000)
+            // await delay(1000)
             message = `Ready to get Admin4 data page => ${i}  \n`;
             log += message
             console.log(message)
@@ -223,17 +265,16 @@ export class HeuristicSurveyService {
                 .andWhere(`admin4.type = :type`, { type: level == 'WARD' ? 2 : 1 })
                 .skip(i * row)
                 .take(row)
-                .stream();
+                // .cache(false)
+                .getMany();
+
             // for (const a4data of admin4Data) {
-            await admin4Data.on('data', async (a4data: any) => {
-                log += `Check Church for ${level} => ${a4data.admin4_name} \n`;
+            await Promise.all(admin4Data.map(async (a4data) => {
+                log += `Check Church for ${level} => ${a4data.admin_4_name} \n`;
                 const churchList: any = [];
-                // console.log('a4data:', a4data); 
-                const geometries = typeof a4data.admin4_geometries == 'string' ? JSON.parse(a4data.admin4_geometries) : a4data.admin4_geometries;
-                const properties = typeof a4data.admin4_properties == 'string' ? JSON.parse(a4data.admin4_properties) : a4data.admin4_properties;
-                // const geometries = typeof a4data.geometries == 'string' ? JSON.parse(a4data.geometries) : a4data.geometries;
-                // const properties = typeof a4data.properties == 'string' ? JSON.parse(a4data.properties) : a4data.properties;
-                // console.log('Geometries:', geometries);
+                const geometries = typeof a4data.geometries == 'string' ? JSON.parse(a4data.geometries) : a4data.geometries;
+                const properties = typeof a4data.properties == 'string' ? JSON.parse(a4data.properties) : a4data.properties;
+                console.log('a4data+++++', a4data);
                 let index = 0
                 for (const church of this.allChurchColletion) {
                     const latlng = { lat: church.geometry.coordinates[1], lng: church.geometry.coordinates[0] }
@@ -248,25 +289,22 @@ export class HeuristicSurveyService {
                 delete a4data.geometries;
                 a4data['properties'] = properties;
                 a4data['geometries'] = geometries;
-                message = `Available churches in ${a4data.admin4_name} is => ${churchList.length} \n`;
+                message = `Available churches in ${a4data.admin_4_name} is => ${churchList.length} \n`;
                 log += message
                 console.log(message)
-                message = `Ready to Save Survey for ${level} ${a4data.admin4_name} \n`;
+                message = `Ready to Save Survey for ${level} ${a4data.admin_4_name} \n`;
                 log += message
                 console.log(message)
-                await this.saveSurvey(a4data, churchList).then((res) => {
-                    log += `Save Survey Successfull for ${level} ${a4data.admin4_name} \n`;
-                // if (res) {
-                //     log += `Ready to Save  Stats for ${level} ${a4data.admin_4_name} \n`;
-                //     //save stats
-                // }
+                await this.saveSurvey(a4data, churchList).then(async (res) => {
+                    log += `Save Survey Successfull for ${level} ${a4data.admin_4_name} \n`;
+                    // if (res) {
+                    //     log += `Ready to Save  Stats for ${level} ${a4data.admin_4_name} \n`;
+                    //     //save stats
+                    //     await this.saveStatsWard(a4data.object_id, properties, churchList)
+                    // }
                 })
-                // }
-            })
-            
-            admin4Data.on('end' , () => {
-                console.log('Stream Completed')
-            })
+            }))
+            // }
         }
         message = `==============No of churches present in the ${level}S: ${totalChurches - this.allChurchColletion.length}============== \n`;
         message = `==============No of churches not present in the ${level}S: ${this.allChurchColletion.length}============== \n`;

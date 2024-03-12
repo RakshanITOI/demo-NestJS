@@ -1285,9 +1285,9 @@ async getAllChurch(admin1){
             // Save survey and stats concurrently
             // await Promise.all([
                 this.saveSurvey(admin4, prop, churchList);
-            //     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-            // await delay(1000);
-            //   await  this.saveStatsWard(object_id, prop, churchList)
+                const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+            await delay(1000);
+              await  this.saveStatsWard(object_id, prop, churchList)
             // ]);
     
             this.total_church_count += churchList.length;
