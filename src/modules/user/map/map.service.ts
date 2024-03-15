@@ -970,30 +970,31 @@ export class MapService {
 
     async getDataFromDbVillage(level: 'COUNTRY' | 'STATE' | 'DIST' | 'SUB-DIST' | 'ADMIN4_VILLAGE' | 'CITY' | 'VILLAGE' | 'ADMIN4_WARD' | 'wardId', stateName: string, districtName: string) {
         const admin0Query = this.admin0Repository.createQueryBuilder('admin0'),
-        admin1Query = this.admin1Repository.createQueryBuilder('admin1'),
-        admin2Query = this.admin2Repository.createQueryBuilder('admin2'),
-        admin3Query = this.admin3Repository.createQueryBuilder('admin3'),
-        admin4Query = this.admin4Repository.createQueryBuilder('a4');
-        const select = ['a0.admin_0_name as admin0','a1.admin_1_name as admin1','a2.admin_2_name as admin2','a3.admin_3_name as admin3','a4.admin_4_name as admin4','a4.object_id as object_id', 'a4.geometries as geometries','a4.properties as properties']
+            admin1Query = this.admin1Repository.createQueryBuilder('admin1'),
+            admin2Query = this.admin2Repository.createQueryBuilder('admin2'),
+            admin3Query = this.admin3Repository.createQueryBuilder('admin3'),
+            admin4Query = this.admin4Repository.createQueryBuilder('a4');
+        const select = ['a0.admin_0_name as admin0', 'a1.admin_1_name as admin1', 'a2.admin_2_name as admin2', 'a3.admin_3_name as admin3', 'a4.admin_4_name as admin4', 'a4.object_id as object_id', 'a4.geometries as geometries', 'a4.properties as properties']
         await this.getAllChurch('Maharashtra');
         const stream = await admin4Query.select(select)
-        .innerJoin('admin3','a3','a3.id = a4.admin_3_fk_id ')
-        .innerJoin('admin2','a2','a2.id = a3.admin_2_fk_id ')
-        .innerJoin('admin1','a1','a1.id = a2.admin_1_fk_id ')
-        .innerJoin('admin0','a0','a0.id = a1.admin_0_fk_id ')
-        .where('a4.type = :type', { type : 2 })
-        .andWhere('LOWER(a2.admin_2_name) LIKE LOWER(:value)', { value : 'Ahmednagar' })
-        .stream()
+            .innerJoin('admin3', 'a3', 'a3.id = a4.admin_3_fk_id ')
+            .innerJoin('admin2', 'a2', 'a2.id = a3.admin_2_fk_id ')
+            .innerJoin('admin1', 'a1', 'a1.id = a2.admin_1_fk_id ')
+            .innerJoin('admin0', 'a0', 'a0.id = a1.admin_0_fk_id ')
+            .where('a4.type = :type', { type: 1 })
+            .andWhere(`a3.status = :status`, { status: 1 })
+            .andWhere('LOWER(a2.admin_2_name) LIKE LOWER(:value)', { value: 'Ahmednagar' })
+            .stream()
         console.log('Streaming Started')
-        stream.on('data',async (data:any) =>  {
+        stream.on('data', async (data: any) => {
             delay(500)
             let prop = typeof data?.properties == 'string' ? JSON.parse(data?.properties) : data?.properties;
             const geometry = typeof data?.geometries == 'string' ? JSON.parse(data?.geometries) : data?.geometries;
-            setTimeout(async() => {
+            setTimeout(async () => {
                 await this.surveyAndStatsWard(data.admin0, data.admin1, data.admin2, data.admin3, data.admin4, geometry.coordinates, prop, data.object_id)
             }, 2000);
         })
-        stream.on('end' , () => {
+        stream.on('end', () => {
             console.log('Stream Completed')
         })
     }
@@ -1127,7 +1128,7 @@ export class MapService {
     }
 
 
-     getChurhes(admin0, admin1, admin2, admin3?, admin4?) {
+    getChurhes(admin0, admin1, admin2, admin3?, admin4?) {
         // const url = `http://192.168.0.109:8080/api/admin-areas/dist-churches?admin0=${admin0}&admin1=${admin1}&admin2=${admin2}`;
         const url = `http://192.168.86.24:8080/api/admin-areas/village-churches?admin0=${admin0}&admin1=${admin1}&admin2=${admin2}&admin3=${admin3}&admin4=${admin4}`;
         const headersRequest = {
@@ -1239,22 +1240,22 @@ export class MapService {
         }
     }
 
-allChurchCollection:any=[];
-async getAllChurch(admin1){
-    if(Array.isArray(this.allChurchCollection) && this.allChurchCollection.length){
-        return this.allChurchCollection;
-    }
+    allChurchCollection: any = [];
+    async getAllChurch(admin1) {
+        if (Array.isArray(this.allChurchCollection) && this.allChurchCollection.length) {
+            return this.allChurchCollection;
+        }
         console.log('call to connect maongo db');
         const client = await MongoClient.connect('mongodb+srv://itoi:Yu7blcAMUUC8jAFU@cluster0-oi4s9.mongodb.net/iif-dev-db?retryWrites=true&w=majority');
         const db = client.db('iif-dev-db');
         const churchCollection = await db.collection('geocode_responses')
             .find({ "properties.admin1": admin1 })
             .toArray() || [];
-            client.close();
-            console.log('result of all church',churchCollection)
+        client.close();
+        console.log('result of all church', churchCollection)
         this.allChurchCollection = await this.removeDuplicate(churchCollection || []) || [];
         return this.allChurchCollection
-}
+    }
     async surveyAndStatsWard(admin0, admin1, admin2, admin3, admin4, polygon, prop, object_id) {
         try {
             const churchList = [];
@@ -1274,32 +1275,32 @@ async getAllChurch(admin1){
                 const latlng = { lat: church.geometry.coordinates[1], lng: church.geometry.coordinates[0] }
                 const churchLocation = latlng;
                 const isInside = await this.isMarkerInsidePolygon(churchLocation, polygon);
-    
+
                 if (isInside) {
                     churchList.push(church);
                 }
             }
-            console.log('before Save Survey',`${admin4}`)
+            console.log('before Save Survey', `${admin4}`)
             // await this.saveSurvey(prop, churchList);
-    
+
             // Save survey and stats concurrently
             // await Promise.all([
-                this.saveSurvey(admin4, prop, churchList);
-                const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+            // this.saveSurvey(admin4, prop, churchList);
+            const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
             await delay(1000);
-              await  this.saveStatsWard(object_id, prop, churchList)
+            await this.saveStatsWard(object_id, prop, churchList)
             // ]);
-    
+
             this.total_church_count += churchList.length;
             // console.log(`Final Result churches: ${churchList.length}, totalCount: ${this.total_church_count} | ${admin2} | ${admin3} | ${admin4}`);
-    
+
             return { success: true, message: 'Survey and stats saved successfully.' };
         } catch (error) {
             console.log('Error in surveyAndStats:', error);
             return { success: false, message: 'Error in surveyAndStats.' };
         }
     }
-    
+
 
 
     async surveyAndStatsWardOutside(admin0, admin1, admin2, admin3, admin4, polygon, features, object_id) {
@@ -1476,7 +1477,7 @@ async getAllChurch(admin1){
     saveSurvey(admin4, data: any, churchList: any = []): Promise<any> {
         return new Promise(async (resolve, reject) => {
             try {
-                const apiPayload = await this.payload(admin4,data, churchList);
+                const apiPayload = await this.payload(admin4, data, churchList);
                 console.log(' Save called', `${apiPayload.survey.admin3} | ${apiPayload.survey.admin4} |${apiPayload.newChurches?.length} `)
                 const url = `http://192.168.29.106:8080/api/encuesta/create`;
                 const headersRequest = {
@@ -1484,7 +1485,7 @@ async getAllChurch(admin1){
                     'Authorization': `Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbnNsaW5qZW5pc2hhIiwiYXV0aCI6Ik9SR19BRE1JTixPUkdfVVNFUixST0xFX0FETUlOIiwiZXhwIjoxNjk3MzQ3Nzg1fQ.j5xUAHTRZA-RDgDItl4KGy_D9JLjt69ZYVqmx7oQQpzNDrgxOUQKNdplNzqDpnLFzJWddYySENGnRGOctRQ8xQ`,
                 };
                 //const res = await lastValueFrom(this.http.post(url, apiPayload, { headers: headersRequest }));
-                const res = await lastValueFrom(this.http.post(url, apiPayload, { headers: headersRequest}));
+                const res = await lastValueFrom(this.http.post(url, apiPayload, { headers: headersRequest }));
 
                 resolve(res)
             } catch (err) {
@@ -1563,23 +1564,23 @@ async getAllChurch(admin1){
     async payload(admin4, prop, churchList: any = []) {
         const geoJson = await JSON.stringify(structuredClone(prop));
         const strJson = jsonMinify(geoJson)
-       
-       
-        
+
+
+
         const changeAdmin4 = admin4.replace(/[^\u000A\u0020-\u007E]/g, ' ');
         // const finalAdmin4 = changeAdmin4.replace(/[\s~`!@#$%^&*()_+\-={[}\]|\\:;"'<,>.?/]+/g, '').replace(/\s+/g, ' ');
-        
+
         const finalAdmin4 = changeAdmin4.replace(/[^\w\s]|[_-]/g, ' ').replace(/\s{2,}/g, ' ');
 
         const payload: any = {},
             admin0 = 'India',
             //admin0 = features?.properties.country,
             admin1 = 'Maharashtra', //features?.properties.state,
-            admin2 =prop?.admin2,
+            admin2 = prop?.admin2,
             // admin2 = 'Nagpur',
             admin3 = prop?.admin3
-            // admin3 = features.properties.cityname + ' City',
-            
+        // admin3 = features.properties.cityname + ' City',
+
         // admin4 = (features?.properties.sourcewardname.replace(/[^a-zA-Z_ ]/g, '') + ' Wardno ' + features?.properties.sourcewardcode).replace(/\s+/g, ' ');
         // admin4 = features?.properties.name ? features.properties.name.replace('_', ' ').replace(/(?:^|\s)\S/g, (match) => match.toUpperCase()) : null;
         // admin4 = 'Wardno ' + features?.properties.sourcewardcode;
@@ -1593,7 +1594,7 @@ async getAllChurch(admin1){
             admin3: admin3,
             admin4: finalAdmin4,
             isMasterSurvey: true,
-            isUserSurvey:false,
+            isUserSurvey: false,
             noWork: Array.isArray(churchList) && churchList?.length ? false : true,
             approvedDate: new Date(),
             geojson: strJson,
@@ -1626,9 +1627,9 @@ async getAllChurch(admin1){
                 // "lat": cl?.geometry.coordinates[1],
                 // "lng": cl?.geometry.coordinates[0],
                 "workerName": cl?.worker_name,
-                "denomination":cl?.properties?.Church_Denomination,
+                "denomination": cl?.properties?.Church_Denomination,
                 "address": cl?.properties?.Church_Address,
-                "plusCode":cl?.properties?.Plus_Code,
+                "plusCode": cl?.properties?.Plus_Code,
                 // "address": cl?.address,
                 userId: '1',
                 createdUserId: '1',
@@ -1893,19 +1894,19 @@ async getAllChurch(admin1){
             const payload = await this.statsPayload(prop, churchList);
             const url = `http://192.168.29.188/IIF_Local/iia-php-api/api/v1/adminStats/saveByName/${object_id}/1`;
             // const url = `https://api-iif.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/1`;
-    
+
             axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
-    
-            
+
+
             const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
             await delay(1000);
-    
+
             const res = await axios.post(url, payload, { timeout: 18000000 });
-    
+
             if (res && res.data) {
                 console.log('Save Stats =>', res.data);
             }
-    
+
             return res;
         } catch (error) {
             // console.log('Error in save stats =>', error.message || error);
@@ -1913,18 +1914,18 @@ async getAllChurch(admin1){
             throw error;
         }
     }
-    
+
 
 
     // async saveStatsWard(object_id, feature, churchList) {
     //     const payload = await this.statsPayload(feature, churchList);
     //     const url = `https://api-iia.mhsglobal.org/api/v1/adminStats/saveByName/${object_id}/0`;
-    
+
     //         const maxRetries = 3;
     //     const retryDelay = 1000; // 1 second delay between retries
     //     let attempt = 0;
     //     let res;
-    
+
     //     while (attempt < maxRetries) {
     //         try {
     //             res = await this.httpService.post(url, payload, { timeout: 1800000 }).toPromise();
@@ -1936,13 +1937,13 @@ async getAllChurch(admin1){
     //             await new Promise(resolve => setTimeout(resolve, retryDelay));
     //         }
     //     }
-    
-        
+
+
     //     console.log('Maximum retries reached. Unable to save stats.');
     //     return null;
     // }
-    
-    
+
+
 
 
 
